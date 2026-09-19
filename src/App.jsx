@@ -7,6 +7,7 @@ import BroadcastCreatorModal from './components/BroadcastCreatorModal';
 import MobileGuideModal from './components/MobileGuideModal';
 import SettingsModal from './components/SettingsModal';
 import LiveMetadataModal from './components/LiveMetadataModal';
+import YouTubeConnectModal from './components/YouTubeConnectModal';
 import { youtubeApi } from './services/youtubeApi';
 import { storage, DEFAULT_PRESETS, DEFAULT_SETTINGS } from './services/storage';
 
@@ -19,32 +20,50 @@ export default function App() {
   const [isDemoMode, setIsDemoMode] = useState(settings?.isDemoMode ?? true);
   const [presets, setPresets] = useState(storage.getPresets());
   const [broadcasts, setBroadcasts] = useState([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Modals
   const [isCreatorOpen, setIsCreatorOpen] = useState(false);
   const [isMobileGuideOpen, setIsMobileGuideOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isMetadataOpen, setIsMetadataOpen] = useState(false);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
   const [creatorInitialData, setCreatorInitialData] = useState(null);
   const [selectedBroadcastForEdit, setSelectedBroadcastForEdit] = useState(null);
 
   // Load broadcasts
-  const loadBroadcasts = useCallback(async () => {
+  const loadBroadcasts = useCallback(async (showIndicator = false) => {
+    if (showIndicator) setIsRefreshing(true);
     try {
       const data = await youtubeApi.getBroadcasts({
-        isDemoMode,
+        isDemoMode: settings.isDemoMode,
         apiKey: settings.apiKey,
         token: settings.token,
       });
       setBroadcasts(data);
     } catch (e) {
       console.error('Failed to load broadcasts:', e);
+    } finally {
+      if (showIndicator) {
+        setTimeout(() => setIsRefreshing(false), 400);
+      }
     }
-  }, [isDemoMode, settings.apiKey, settings.token]);
+  }, [settings.isDemoMode, settings.apiKey, settings.token]);
 
   useEffect(() => {
     loadBroadcasts();
   }, [loadBroadcasts]);
+
+  // Background auto-refresh polling when connected to real YouTube (every 15 seconds)
+  useEffect(() => {
+    if (!settings.isConnected || !settings.token || settings.isDemoMode) return;
+
+    const timer = setInterval(() => {
+      loadBroadcasts(false);
+    }, 15000);
+
+    return () => clearInterval(timer);
+  }, [settings.isConnected, settings.token, settings.isDemoMode, loadBroadcasts]);
 
   // Sync isDemoMode changes
   const handleToggleDemoMode = (newVal) => {
@@ -166,6 +185,10 @@ export default function App() {
         openSettings={() => setIsSettingsOpen(true)}
         openMobileGuide={() => setIsMobileGuideOpen(true)}
         activeBroadcast={activeBroadcast}
+        settings={settings}
+        openConnectModal={() => setIsConnectModalOpen(true)}
+        onRefresh={() => loadBroadcasts(true)}
+        isRefreshing={isRefreshing}
       />
 
       {/* Main Content Area */}
@@ -186,6 +209,10 @@ export default function App() {
               setIsMetadataOpen(true);
             }}
             isDemoMode={isDemoMode}
+            settings={settings}
+            openConnectModal={() => setIsConnectModalOpen(true)}
+            onRefresh={() => loadBroadcasts(true)}
+            isRefreshing={isRefreshing}
           />
         )}
 
@@ -238,6 +265,21 @@ export default function App() {
         settings={settings}
         onSaveSettings={handleSaveSettings}
         onResetData={handleResetData}
+        openConnectModal={() => {
+          setIsSettingsOpen(false);
+          setIsConnectModalOpen(true);
+        }}
+      />
+
+      <YouTubeConnectModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        settings={settings}
+        onSaveSettings={handleSaveSettings}
+        onConnected={(newSettings) => {
+          handleSaveSettings(newSettings);
+          loadBroadcasts(true);
+        }}
       />
 
       <LiveMetadataModal

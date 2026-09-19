@@ -11,7 +11,8 @@ import {
   Check, 
   Sparkles,
   ShieldAlert,
-  Save
+  Save,
+  Radio
 } from './icons';
 import { storage } from '../services/storage';
 
@@ -20,7 +21,8 @@ export default function SettingsModal({
   onClose, 
   settings, 
   onSaveSettings, 
-  onResetData 
+  onResetData,
+  openConnectModal 
 }) {
   const [isDemoMode, setIsDemoMode] = useState(settings?.isDemoMode ?? true);
   const [apiKey, setApiKey] = useState(settings?.apiKey || '');
@@ -152,6 +154,28 @@ export default function SettingsModal({
               >
                 <HelpCircle className="w-3.5 h-3.5" />
                 {showGuide ? '가이드 접기' : '발급 방법 가이드 보기'}
+              </button>
+            </div>
+
+            {/* Quick Connect Trigger Button */}
+            <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <span className="text-xs font-bold text-white block">
+                  {settings?.isConnected ? `🟢 연동 완료: ${settings?.channelName}` : '내 YouTube 채널 간편 연동'}
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-0.5">
+                  {settings?.isConnected
+                    ? '현재 실제 유튜브 채널과 실시간으로 연결되어 있습니다.'
+                    : 'Google 로그인 또는 30초 토큰 복사로 채널을 바로 연결하세요.'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={openConnectModal}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md shadow-red-600/30 transition-all flex items-center justify-center gap-1.5 flex-shrink-0"
+              >
+                <Radio className="w-3.5 h-3.5" />
+                {settings?.isConnected ? '연동 관리' : '유튜브 채널 연동창 열기'}
               </button>
             </div>
 

@@ -129,14 +129,21 @@ export const DEFAULT_PRESETS = [
 // Initial default settings
 export const DEFAULT_SETTINGS = {
   isDemoMode: true,
+  isConnected: false,
+  token: '',
   apiKey: '',
   clientId: '',
   channelName: '미라클 스튜디오 TV',
   channelId: 'UC_MOCK_CHANNEL_12345',
+  channelAvatar: '',
+  channelCustomUrl: '',
+  subscriberCount: '0',
+  videoCount: '0',
   defaultPrivacy: 'public',
   latencyPreference: 'ultraLow',
   enableAutoStart: true,
   enableAutoStop: false,
+  autoRefresh: true,
 };
 
 export const storage = {

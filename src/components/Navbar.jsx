@@ -6,17 +6,19 @@ import {
   Smartphone, 
   Settings as SettingsIcon, 
   Radio, 
-  Sparkles
+  RefreshCw
 } from './icons';
 
 export default function Navbar({ 
   activeTab, 
   setActiveTab, 
-  isDemoMode, 
-  setIsDemoMode, 
   openSettings, 
   openMobileGuide,
-  activeBroadcast 
+  activeBroadcast,
+  settings,
+  openConnectModal,
+  onRefresh,
+  isRefreshing
 }) {
   const isLive = activeBroadcast?.status === 'live';
 
@@ -91,36 +93,58 @@ export default function Navbar({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2.5">
+          {/* Real YouTube Channel Status / Connect Button */}
+          {settings?.isConnected && settings?.token ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors"
+                title="유튜브 실시간 방송 목록 새로고침"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-red-500' : ''}`} />
+              </button>
+
+              <button
+                onClick={openConnectModal}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold shadow-sm transition-all"
+                title="클릭하여 유튜브 연결 관리"
+              >
+                {settings.channelAvatar ? (
+                  <img src={settings.channelAvatar} alt="" className="w-4 h-4 rounded-full object-cover" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                )}
+                <span className="max-w-[120px] truncate">{settings.channelName}</span>
+                <span className="text-[10px] bg-emerald-500/20 px-1.5 py-0.2 rounded text-emerald-400">연동됨</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={openConnectModal}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition-all animate-pulse"
+              title="실제 내 유튜브 채널과 연동하기"
+            >
+              <Radio className="w-3.5 h-3.5" />
+              <span>내 유튜브 채널 연결</span>
+            </button>
+          )}
+
           {/* Mobile Guide Button */}
           <button
             onClick={openMobileGuide}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-sky-400 border border-slate-800 transition-colors"
             title="스마트폰 유튜브 앱에서 시작하는 방법"
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">모바일 폰 연동 가이드</span>
-            <span className="sm:hidden">폰 연동</span>
-          </button>
-
-          {/* Demo Mode Toggle Badge */}
-          <button
-            onClick={() => setIsDemoMode(!isDemoMode)}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
-              isDemoMode
-                ? 'bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
-                : 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20'
-            }`}
-            title="데모 모드 / 실제 유튜브 API 전환"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>{isDemoMode ? '체험 데모 모드' : 'YouTube API 연동'}</span>
+            <span>폰 연동 가이드</span>
           </button>
 
           {/* Settings Button */}
           <button
             onClick={openSettings}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-800 transition-colors"
-            title="환경 설정 및 API 연결"
+            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 border border-slate-800 transition-colors"
+            title="환경 설정"
           >
             <SettingsIcon className="w-4 h-4" />
           </button>

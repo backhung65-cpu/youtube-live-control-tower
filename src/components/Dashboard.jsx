@@ -17,7 +17,8 @@ import {
   MessageSquare,
   Send,
   Sparkles,
-  QrCode
+  QrCode,
+  RefreshCw
 } from './icons';
 import { formatDuration, formatKoreanDateTime, getStatusBadge } from '../utils/formatters';
 import { MOCK_CHAT_MESSAGES } from '../services/mockData';
@@ -31,7 +32,11 @@ export default function Dashboard({
   onStatusChange, 
   onDeleteBroadcast,
   onEditMetadata,
-  isDemoMode 
+  isDemoMode,
+  settings,
+  openConnectModal,
+  onRefresh,
+  isRefreshing
 }) {
   // Find active broadcast (live first, then ready, then most recent)
   const liveBroadcast = broadcasts.find((b) => b.status === 'live');
@@ -194,6 +199,83 @@ export default function Dashboard({
         </div>
       </div>
 
+      {/* Real YouTube Connection Status Banner */}
+      {!settings?.isConnected || !settings?.token ? (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-red-950/80 via-slate-900 to-slate-900 border border-red-500/40 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className="p-2.5 rounded-xl bg-red-600/20 text-red-400 border border-red-500/30 flex-shrink-0">
+              <Radio className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30">
+                  데모 모드 동작중
+                </span>
+                <h4 className="text-sm font-bold text-white">
+                  실제 YouTube 채널이 아직 연결되지 않았습니다
+                </h4>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                스마트폰 유튜브 앱으로 켠 방송을 PC 관제탑에서 실시간 감지하고 제어하려면, 내 유튜브 채널을 연결하세요 (30초 완료).
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={openConnectModal}
+            className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-lg shadow-red-600/30 transition-all flex items-center justify-center gap-2"
+          >
+            <Radio className="w-4 h-4" />
+            <span>내 유튜브 채널 연동하기 →</span>
+          </button>
+        </div>
+      ) : (
+        <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-3">
+            {settings.channelAvatar ? (
+              <img
+                src={settings.channelAvatar}
+                alt=""
+                className="w-8 h-8 rounded-full border border-emerald-400 object-cover"
+              />
+            ) : (
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            )}
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-white">실제 채널 연동됨:</span>
+                <span className="font-extrabold text-emerald-300 text-sm">{settings.channelName}</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-1.5 py-0.2 rounded font-semibold">
+                  LIVE 동기화중
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                구독자 {Number(settings.subscriberCount || 0).toLocaleString()}명 • 스마트폰과 PC가 실시간으로 연결되어 있습니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-center">
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-medium border border-slate-700 transition-colors"
+              title="유튜브 방송 목록 실시간 갱신"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-red-500' : ''}`} />
+              <span>{isRefreshing ? '새로고침 중...' : '실시간 새로고침'}</span>
+            </button>
+
+            <button
+              onClick={openConnectModal}
+              className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
+            >
+              연동 관리
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Active Live Command Center */}
       {activeBroadcast ? (
         <div className="relative overflow-hidden rounded-3xl bg-slate-900/90 border border-slate-800 shadow-2xl p-6 lg:p-8">
@@ -319,6 +401,34 @@ export default function Dashboard({
                   <ExternalLink className="w-4 h-4" />
                   유튜브 시청 페이지
                 </a>
+
+                {/* Studio Live Control Room Deep Link */}
+                {activeBroadcast.studioUrl && (
+                  <a
+                    href={activeBroadcast.studioUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs sm:text-sm font-medium border border-slate-700 transition-colors"
+                    title="YouTube 공식 스튜디오 라이브 관제실 열기"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    스튜디오 관제실
+                  </a>
+                )}
+
+                {/* Live Chat Popout */}
+                {activeBroadcast.chatPopoutUrl && (
+                  <button
+                    onClick={() => {
+                      window.open(activeBroadcast.chatPopoutUrl, '_blank', 'width=450,height=650,resizable=yes');
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-sky-400 text-xs sm:text-sm font-medium border border-slate-700 transition-colors"
+                    title="독립된 창으로 실시간 채팅 열기"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    채팅 팝업
+                  </button>
+                )}
 
                 {/* Edit Metadata */}
                 <button
