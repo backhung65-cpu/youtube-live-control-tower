@@ -55,6 +55,7 @@ export default function Dashboard({
   const [newChatInput, setNewChatInput] = useState('');
   const [qrModalUrl, setQrModalUrl] = useState('');
   const [showQrModal, setShowQrModal] = useState(false);
+  const [screenMode, setScreenMode] = useState('thumbnail'); // 'thumbnail' | 'player'
 
   // Calculate elapsed time if live
   useEffect(() => {
@@ -287,8 +288,38 @@ export default function Dashboard({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             {/* Left: 16:9 Thumbnail / Live Screen (5 cols) */}
             <div className="lg:col-span-5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-slate-400">화면 모니터</span>
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px]">
+                  <button
+                    onClick={() => setScreenMode('thumbnail')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors ${
+                      screenMode === 'thumbnail' ? 'bg-red-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    섬네일 보기
+                  </button>
+                  <button
+                    onClick={() => setScreenMode('player')}
+                    className={`px-2.5 py-1 rounded-lg transition-colors ${
+                      screenMode === 'player' ? 'bg-red-600 text-white font-bold' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    실시간 영상 (Live Player)
+                  </button>
+                </div>
+              </div>
+
               <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-800 shadow-xl bg-slate-950 group">
-                {activeBroadcast.thumbnailUrl ? (
+                {screenMode === 'player' ? (
+                  <iframe
+                    src={activeBroadcast.liveEmbedUrl || `https://www.youtube.com/embed/${activeBroadcast.id}?autoplay=1&mute=1`}
+                    title="Live Stream Player"
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : activeBroadcast.thumbnailUrl ? (
                   <img
                     src={activeBroadcast.thumbnailUrl}
                     alt={activeBroadcast.title}
@@ -308,7 +339,7 @@ export default function Dashboard({
                 )}
 
                 {/* Status Badge Overlay */}
-                <div className="absolute top-3 left-3">
+                <div className="absolute top-3 left-3 pointer-events-none">
                   <span
                     className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shadow-lg backdrop-blur-md ${badgeInfo?.className}`}
                   >
@@ -319,7 +350,7 @@ export default function Dashboard({
 
                 {/* Duration Overlay when Live */}
                 {isLive && (
-                  <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-white font-mono text-xs font-bold border border-white/10 flex items-center gap-1.5">
+                  <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-md text-white font-mono text-xs font-bold border border-white/10 flex items-center gap-1.5 pointer-events-none">
                     <Clock className="w-3 h-3 text-red-500" />
                     {formatDuration(elapsedSeconds)}
                   </div>

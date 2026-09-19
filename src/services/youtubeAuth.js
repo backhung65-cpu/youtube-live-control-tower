@@ -64,6 +64,42 @@ export const youtubeAuth = {
   },
 
   /**
+   * Connect with YouTube Channel ID or Handle (@handle) and optional API Key
+   */
+  async connectWithChannelIdAndApiKey(identifier, apiKey = '', existingSettings = {}) {
+    if (!identifier || !identifier.trim()) {
+      throw new Error('유튜브 채널 주소, 핸들(@아이디), 또는 채널 ID를 입력해주세요.');
+    }
+
+    const cleanId = identifier.trim();
+    const cleanKey = apiKey.trim();
+
+    // Resolve channel metadata
+    const channel = await youtubeApi.resolveChannel(cleanId, {
+      apiKey: cleanKey,
+      token: existingSettings.token || '',
+    });
+
+    const updated = {
+      ...existingSettings,
+      apiKey: cleanKey,
+      channelHandle: cleanId,
+      channelName: channel.title,
+      channelId: channel.id,
+      channelAvatar: channel.avatar,
+      channelCustomUrl: channel.customUrl,
+      subscriberCount: channel.subscriberCount,
+      videoCount: channel.videoCount,
+      isConnected: true,
+      isDemoMode: false,
+      lastConnectedAt: new Date().toISOString(),
+    };
+
+    storage.saveSettings(updated);
+    return updated;
+  },
+
+  /**
    * 1-Click Google Login Popup via Google Identity Services (GIS)
    */
   async loginWithGoogleGIS(clientId, currentSettings = {}) {

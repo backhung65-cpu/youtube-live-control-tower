@@ -48,6 +48,175 @@ export const youtubeApi = {
   },
 
   /**
+   * Resolve YouTube Channel by ID, Handle (@handle), or URL
+   */
+  async resolveChannel(input, options = {}) {
+    if (!input || !input.trim()) throw new Error('유튜브 채널 ID나 핸들(@아이디)을 입력해주세요.');
+    const { apiKey = '', token = '' } = options;
+
+    let clean = input.trim();
+    // Parse URL if user pasted full YouTube URL
+    if (clean.includes('youtube.com/')) {
+      const parts = clean.split('youtube.com/')[1].split('/')[0].split('?')[0];
+      clean = parts;
+    } else if (clean.includes('youtu.be/')) {
+      clean = clean.split('youtu.be/')[1].split('?')[0];
+    }
+
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const keyParam = apiKey ? `&key=${apiKey}` : '';
+
+    // If starts with UC and has 24 chars -> it is a Channel ID
+    const isChannelId = clean.startsWith('UC') && clean.length === 24;
+    const isHandle = clean.startsWith('@');
+    const handleName = isHandle ? clean : `@${clean}`;
+
+    // 1. Try resolving with YouTube Data API v3 if key or token is available
+    if (apiKey || token) {
+      try {
+        let endpoint = '';
+        if (isChannelId) {
+          endpoint = `${YOUTUBE_API_BASE}/channels?part=snippet,statistics&id=${clean}${keyParam}`;
+        } else {
+          // by handle
+          endpoint = `${YOUTUBE_API_BASE}/channels?part=snippet,statistics&forHandle=${encodeURIComponent(handleName)}${keyParam}`;
+        }
+
+        const res = await fetch(endpoint, { headers: authHeaders });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.items && data.items.length > 0) {
+            const ch = data.items[0];
+            return {
+              id: ch.id,
+              title: ch.snippet?.title || clean,
+              customUrl: ch.snippet?.customUrl || handleName,
+              avatar: ch.snippet?.thumbnails?.medium?.url || ch.snippet?.thumbnails?.default?.url || '',
+              subscriberCount: ch.statistics?.subscriberCount || '0',
+              videoCount: ch.statistics?.videoCount || '0',
+            };
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API로 채널 조회 실패, 대체 모드 진행:', apiErr);
+      }
+    }
+
+    // 2. Fallback: Resolve without API key via oEmbed or direct construction
+    try {
+      const oembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(`https://www.youtube.com/${handleName}`)}`;
+      const oembedRes = await fetch(oembedUrl);
+      if (oembedRes.ok) {
+        const odata = await oembedRes.json();
+        if (odata.title || odata.author_name) {
+          return {
+            id: isChannelId ? clean : `UC_${clean.replace(/[^a-zA-Z0-9]/g, '')}`,
+            title: odata.author_name || odata.title || clean,
+            customUrl: handleName,
+            avatar: odata.thumbnail_url || '',
+            subscriberCount: '0',
+            videoCount: '0',
+          };
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // 3. Simple direct fallback
+    return {
+      id: isChannelId ? clean : `UC_${clean.replace(/[^a-zA-Z0-9]/g, '')}`,
+      title: clean.startsWith('@') ? clean.slice(1) : clean,
+      customUrl: handleName,
+      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(clean)}`,
+      subscriberCount: '0',
+      videoCount: '0',
+    };
+  },
+
+  /**
+   * Search active live stream or upcoming stream for a specific channel ID
+   */
+  async getChannelLiveBroadcasts(channelId, options = {}) {
+    const { apiKey = '', token = '' } = options;
+    if (!channelId || (!apiKey && !token)) return [];
+
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const keyParam = apiKey ? `&key=${apiKey}` : '';
+
+    try {
+      // Search for live or upcoming events
+      const res = await fetch(
+        `${YOUTUBE_API_BASE}/search?part=snippet&channelId=${channelId}&eventType=live&type=video&maxResults=5${keyParam}`,
+        { headers: authHeaders }
+      );
+
+      let broadcasts = [];
+
+      if (res.ok) {
+        const data = await res.json();
+        for (const item of data.items || []) {
+          broadcasts.push({
+            id: item.id?.videoId || item.id,
+            title: item.snippet?.title || '실시간 라이브 방송',
+            description: item.snippet?.description || '',
+            status: 'live',
+            scheduledStartTime: item.snippet?.publishedAt,
+            actualStartTime: item.snippet?.publishedAt,
+            privacyStatus: 'public',
+            viewerCount: 0,
+            likeCount: 0,
+            streamHealth: 'good',
+            thumbnailUrl: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || '',
+            channelTitle: item.snippet?.channelTitle || '내 채널',
+            liveChatId: '',
+            studioUrl: `https://studio.youtube.com/video/${item.id?.videoId || item.id}/livestreaming`,
+            watchUrl: `https://youtube.com/live/${item.id?.videoId || item.id}`,
+            liveEmbedUrl: `https://www.youtube.com/embed/${item.id?.videoId || item.id}?autoplay=1&mute=1`,
+            chatPopoutUrl: `https://www.youtube.com/live_chat?v=${item.id?.videoId || item.id}&is_popout=1`,
+          });
+        }
+      }
+
+      // Also check upcoming scheduled streams if no active live stream
+      if (broadcasts.length === 0) {
+        const upcomingRes = await fetch(
+          `${YOUTUBE_API_BASE}/search?part=snippet&channelId=${channelId}&eventType=upcoming&type=video&maxResults=5${keyParam}`,
+          { headers: authHeaders }
+        );
+        if (upcomingRes.ok) {
+          const udata = await upcomingRes.json();
+          for (const item of udata.items || []) {
+            broadcasts.push({
+              id: item.id?.videoId || item.id,
+              title: item.snippet?.title || '예약된 라이브 방송',
+              description: item.snippet?.description || '',
+              status: 'ready',
+              scheduledStartTime: item.snippet?.publishedAt,
+              privacyStatus: 'public',
+              viewerCount: 0,
+              likeCount: 0,
+              streamHealth: 'good',
+              thumbnailUrl: item.snippet?.thumbnails?.high?.url || item.snippet?.thumbnails?.medium?.url || '',
+              channelTitle: item.snippet?.channelTitle || '내 채널',
+              liveChatId: '',
+              studioUrl: `https://studio.youtube.com/video/${item.id?.videoId || item.id}/livestreaming`,
+              watchUrl: `https://youtube.com/live/${item.id?.videoId || item.id}`,
+              liveEmbedUrl: `https://www.youtube.com/embed/${item.id?.videoId || item.id}`,
+              chatPopoutUrl: `https://www.youtube.com/live_chat?v=${item.id?.videoId || item.id}&is_popout=1`,
+            });
+          }
+        }
+      }
+
+      return broadcasts;
+    } catch (e) {
+      console.warn('채널 라이브 스트림 검색 실패:', e);
+      return [];
+    }
+  },
+
+  /**
    * Fetch Live Broadcasts (Real YouTube or Local Demo)
    */
   async getBroadcasts(options = {}) {
